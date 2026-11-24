@@ -4,8 +4,8 @@
 // 1) 네이버 블로그 RSS(https://rss.blog.naver.com/4pril7th.xml)를 읽는다.
 // 2) data/blog.json에 없는 글을 찾아 추가한다. 이미 있는 글은 건드리지 않는다
 //    (사이트 주인이 직접 고친 제목·분류를 지키기 위해서).
-// 3) 최신순으로 정렬해 index.html의 블로그 목록(표시 주석 사이)을 다시 만든다.
-//    가장 최신 글 하나에만 "새 글" 빨간 점을 붙이고, 나머지는 서랍 안 목록에 넣는다.
+// 3) 최신순으로 정렬해 index.html 01 블로그 칸의 3D 카드(표시 주석 사이)를 다시 만든다.
+//    가장 최신 글 하나에만 "새 글" 빨간 점을 붙인다. 맨 뒤 "블로그 전체 보기" 카드는 표시 밖에 있어 그대로 둔다.
 //
 // 직접 시험할 때: RSS_FILE=내려받은파일.xml node scripts/update-blog.mjs
 // 외부 패키지 없이 Node 18 이상에서 돌아간다.
@@ -14,7 +14,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 
 const BLOG_ID = '4pril7th';
 const RSS_URL = `https://rss.blog.naver.com/${BLOG_ID}.xml`;
-const SHOW = 10;                       // 사이트에 보여 줄 최신 글 수 (맨 위 1편 + 서랍 9편)
+const SHOW = 10;                       // 사이트에 보여 줄 최신 글 수
 
 const root = new URL('..', import.meta.url);
 const dataFile = new URL('data/blog.json', root);
@@ -67,21 +67,19 @@ function parseRss(xml) {
   return items;
 }
 
-// ---------- HTML 만들기 (지금 사이트의 모양과 한 글자도 다르지 않게) ----------
+// ---------- HTML 만들기: 01 블로그 칸의 3D 카드 (js/stack-3d.js가 색과 움직임을 붙임) ----------
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function itemHtml(p, indent, isNew) {
-  const pad = ' '.repeat(indent);
+function cardHtml(p, isNew) {
+  const pad = ' '.repeat(10);
   const url = `https://blog.naver.com/${BLOG_ID}/${p.id}`;
-  const badge = isNew ? '<span class="new">새 글</span>' : '';
-  const body = p.category
-    ? `${pad}  <span><b>${esc(p.title)}</b>${badge}\n${pad}  <p>${esc(p.category)}</p></span>\n`
-    : `${pad}  <span><b>${esc(p.title)}</b>${badge}</span>\n`;
-  return `${pad}<li><a href="${url}" target="_blank" rel="noopener">\n`
-    + `${pad}  <span class="d dot">${esc(p.date)}</span>\n`
-    + body
-    + `${pad}  <span class="go" aria-hidden="true">↗</span>\n`
-    + `${pad}</a></li>\n`;
+  const meta = p.category ? `${p.date} · ${p.category}` : p.date;
+  const cat = p.category ? `<span class="cat">${esc(p.category)}</span>` : '';
+  const badge = isNew ? '<span class="new">새 글</span>' : '<span></span>';
+  return `${pad}<a class="c3 post3d" href="${url}" target="_blank" rel="noopener" data-title="${esc(p.title)}" data-meta="${esc(meta)}">\n`
+    + `${pad}  <div class="face"><div class="meta"><span class="dot">${esc(p.date)}</span>${cat}</div><span></span><p class="t">${esc(p.title)}</p><div class="bottom">${badge}<span aria-hidden="true">↗</span></div></div>\n`
+    + `${pad}  <span class="tag">글 읽기 ↗</span>\n`
+    + `${pad}</a>\n`;
 }
 
 function replaceBetween(html, name, inner) {
@@ -117,8 +115,7 @@ await writeFile(dataFile, JSON.stringify(data, null, 2) + '\n');
 
 const shown = posts.slice(0, SHOW);
 let html = await readFile(indexFile, 'utf8');
-html = replaceBetween(html, 'blog:top', shown.slice(0, 1).map((p) => itemHtml(p, 8, true)).join(''));
-html = replaceBetween(html, 'blog:more', shown.slice(1).map((p) => itemHtml(p, 14, false)).join(''));
+html = replaceBetween(html, 'blog:cards', shown.map((p, i) => cardHtml(p, i === 0)).join(''));
 await writeFile(indexFile, html);
 
 console.log(added.length ? `새 글 ${added.length}편 추가: ${added.map((p) => `${p.date} ${p.title}`).join(' / ')}` : '새 글 없음');
