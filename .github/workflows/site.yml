@@ -1,0 +1,75 @@
+# 블로그 새 글 자동 반영 + 사이트 게시
+#
+# - 3시간마다: 네이버 블로그에 새 글이 있는지 보고, 있으면 01 블로그 칸에 넣은 뒤 사이트를 다시 게시
+# - main에 직접 올렸을 때(디자인 수정 등): 블로그를 한 번 확인한 뒤 사이트를 게시
+# - Actions 탭의 "Run workflow" 버튼으로 언제든 바로 돌릴 수 있음
+#
+# 사이트 게시 방식이 "GitHub Actions"여야 함 (Settings → Pages → Source)
+
+name: 블로그 자동 반영 · 사이트 게시
+
+on:
+  schedule:
+    - cron: '23 */3 * * *'      # 3시간마다 (매시 23분, UTC 기준)
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.save.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 네이버 블로그 새 글 확인
+        run: node scripts/update-blog.mjs
+
+      - name: 바뀐 것이 있으면 저장
+        id: save
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain -- index.html data)" ]; then
+            git add index.html data
+            git commit -m "블로그 새 글 자동 반영"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            # 공개 저장소는 60일 동안 아무 기록이 없으면 정해진 시간 작업이 멈춤 → 40일 넘게 조용하면 기록 한 줄 남김
+            if [ $(( $(date +%s) - $(git log -1 --format=%ct) )) -gt 3456000 ]; then
+              date -u +%F > data/keepalive.txt
+              git add data/keepalive.txt
+              git commit -m "자동 작업 유지용 기록"
+              git push
+            fi
+          fi
+
+      - name: 게시할 파일 묶기
+        if: steps.save.outputs.changed == 'true' || github.event_name != 'schedule'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: update
+    if: needs.update.outputs.changed == 'true' || github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 사이트 게시
+        id: deployment
+        uses: actions/deploy-pages@v4
