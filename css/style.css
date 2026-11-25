@@ -837,9 +837,10 @@ html.ring-dragging, html.ring-dragging * { cursor: grabbing !important; }
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
   transform: scale(1.08); transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.5s ease;
 }
-.iv-media video { opacity: 0; }
+.iv-media video { opacity: 0; transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.1s linear; }
 .iv-strip.is-open .iv-media img, .iv-strip.is-open .iv-media video { transform: scale(1); }
-.iv-strip.is-open.is-live .iv-media video { opacity: 1; }
+.iv-strip.is-open.is-live .iv-media video { opacity: 1; transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s ease; }
+/* 띠가 접힐 때 재생 중이던 영상이 흐린 사진 위로 천천히 사라지면 두 장면이 겹쳐 보여서(잔상), 접히는 순간 바로 감춤 */
 /* 접힌 띠: 사진 위에 띠 색이 아래에서부터 번지듯 덮임 */
 .iv-media::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -885,7 +886,7 @@ html.ring-dragging, html.ring-dragging * { cursor: grabbing !important; }
 
 /* 펼쳐진 띠의 글: 영상 옆 남는 자리에, 펼쳐진 뒤 아래에서 떠오름 */
 .iv-info {
-  flex: 1 1 15rem; min-width: 0; align-self: stretch;
+  flex: 0 0 var(--info-w, 17rem); min-width: 0; align-self: stretch;
   display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 0.75rem;
   padding: clamp(1.25rem, 2.4vw, 2.25rem);
   opacity: 0; transform: translateY(16px);
@@ -944,7 +945,7 @@ html.ring-dragging, html.ring-dragging * { cursor: grabbing !important; }
   .iv-media { height: 100%; width: 100%; max-width: none; aspect-ratio: auto; transition: width 0.9s cubic-bezier(0.65, 0, 0.15, 1); }
   .iv-strip.is-open .iv-media { width: 44%; }
   .iv-name { writing-mode: horizontal-tb; transform: none; left: 1rem; bottom: 50%; translate: 0 50%; }
-  .iv-info { flex: 1 0 9rem; padding: 1rem 0.9rem; gap: 0.5rem; }
+  .iv-info { flex: 0 0 var(--info-w, 56%); padding: 1rem 0.9rem; gap: 0.5rem; }
   .iv-info h3 { font-size: 1.05rem; }
   .iv-info p { font-size: 0.8125rem; line-height: 1.6; -webkit-line-clamp: 3; flex-shrink: 0; }
   .iv-num, .iv-k-dur { display: none; }

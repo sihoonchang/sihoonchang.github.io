@@ -3,6 +3,7 @@
    - 다른 띠에 커서를 올리면 그 띠가 부드럽게 넓어지며 제목·설명이 떠오름. 펼쳐지는 동안(약 0.65초)은 다음 띠로 바뀌지 않음
      (띠 폭이 바뀌면서 커서 밑의 띠가 저절로 바뀌어 왔다 갔다 하지 않게, 커서가 실제로 움직였을 때만 바꿈)
    - 접힌 띠를 누르면(휴대폰은 톡) 그 띠가 펼쳐지고, 펼쳐진 영상을 누르면 소리와 함께 크게 재생(js/video-modal.js)
+   - 띠가 접히면 영상은 바로 감추고(흐린 사진과 겹쳐 보이는 잔상 방지), 글 칸은 펼친 뒤의 폭으로 고정해 움직이는 동안 글자가 출렁이지 않게 함
    - 펼쳐진 영상 위의 ▶ 동그라미가 커서를 살짝 늦게 따라다님
    - 키보드: Tab으로 띠를 고르면 펼쳐지고 Enter로 재생
    - 인터뷰 화면이 아닐 때, 영상 팝업이 떠 있을 때, 창이 가려졌을 때는 미리보기 영상을 멈춤
@@ -29,11 +30,15 @@
       if (!v.getAttribute('src')) v.src = v.dataset.src;
       const p = v.play();
       if (p && p.catch) p.catch(() => {});
-    } else if (!v.paused) v.pause();
+    } else {
+      if (!v.paused) v.pause();
+      // 접힌 띠: 영상은 바로 감추고 처음으로 되감음(다시 펼치면 처음부터, 재생이 시작된 뒤에야 보임 → 잔상 없음)
+      if (k !== open) { s.classList.remove('is-live'); if (v.currentTime) { try { v.currentTime = 0; } catch (err) { /* 무시 */ } } }
+    }
   });
   strips.forEach((s) => {
     const v = s.querySelector('video');
-    if (v) v.addEventListener('playing', () => s.classList.add('is-live'), { once: true });
+    if (v) v.addEventListener('playing', () => { if (s.classList.contains('is-open')) s.classList.add('is-live'); });
   });
 
   const setOpen = (i) => {
@@ -113,6 +118,24 @@
   };
   const fillAll = () => runs.forEach(fill);
   fillAll();
+
+  // 펼친 띠의 글 칸 폭을 미리 재어 고정: 띠가 넓어지거나 좁아지는 동안 글자가 다시 줄바꿈되며 출렁이지 않게
+  // (모든 띠의 펼친 폭이 같으므로 펼쳐진 띠 하나로 재면 됨. 화면 크기가 바뀌면 움직임이 끝난 뒤 다시 잼)
+  const measure = () => {
+    const s = strips[open];
+    const m = s && s.querySelector('.iv-media');
+    if (!m) return;
+    const w = Math.floor(s.clientWidth - m.offsetWidth);
+    if (w > 100) list.style.setProperty('--info-w', `${w}px`);
+  };
+  measure();
+  let mt = 0;
+  const measureLater = (ms) => { clearTimeout(mt); mt = setTimeout(measure, ms); };
+  window.addEventListener('resize', () => measureLater(1000));
+  list.addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'flex-grow' || (e.propertyName === 'width' && e.target.classList.contains('iv-media'))) measureLater(30);
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
   let rt = 0;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fillAll, 150); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fillAll);
